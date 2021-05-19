@@ -10,17 +10,17 @@ for j in range(2):
     t_success = True
     for i in range(10):
         obs, rew, done, _ = env.step([0, 0])
-        assert(obs.shape == (400, 400, 3))
+        assert obs.shape == (400, 400, 3)
         if rew != 0:
             t_success = False
         env.render()
     if t_success:
         success = True
 
-assert(success)
+assert success
 
 
-del(env)
+del env
 
 env = gym.make("fluids-vel-v2")
 env.reset()

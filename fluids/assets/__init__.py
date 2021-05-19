@@ -11,17 +11,18 @@ from fluids.assets.crosswalk import CrossWalk
 from fluids.assets.waypoint import Waypoint
 from fluids.assets.shape import Shape
 
-ALL_OBJS = [Terrain,
-            Street,
-            Lane,
-            Sidewalk,
-            PedCrossing,
-            Pedestrian,
-            Car,
-            "TrafficLight-Red",
-            "TrafficLight-Green",
-            "TrafficLight-Yellow",
-            CrossWalkLight,
-            CrossWalk,
-            Waypoint]
-             
+ALL_OBJS = [
+    Terrain,
+    Street,
+    Lane,
+    Sidewalk,
+    PedCrossing,
+    Pedestrian,
+    Car,
+    "TrafficLight-Red",
+    "TrafficLight-Green",
+    "TrafficLight-Yellow",
+    CrossWalkLight,
+    CrossWalk,
+    Waypoint,
+]

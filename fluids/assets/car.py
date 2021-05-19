@@ -22,43 +22,55 @@ def integrator(state, t, steer, acc, lr, lf):
     dvel = acc
     return dx, dy, dvel, dangle
 
-class Car(Shape):
-    def __init__(self, vel=0, mass=400, max_vel=5,
-                 planning_depth=20, **kwargs):
-        from fluids.assets import Lane, Car, Pedestrian, TrafficLight, Terrain, Sidewalk, PedCrossing
-        collideables = [Lane,
-                        Car,
-                        Pedestrian,
-                        TrafficLight,
-                        Terrain,
-                        Sidewalk,
-                        PedCrossing]
-        Shape.__init__(self,
-                       collideables=collideables,
-                       color=(0x1d,0xb1,0xb0),#769BB0
-                       xdim=70,
-                       ydim=35,
-                       **kwargs)
 
-        self.l_r            = self.l_f = self.ydim / 2
-        self.mass           = mass
-        self.max_vel        = max_vel
-        self.vel            = vel
-        self.waypoints      = []
-        self.trajectory     = []
+class Car(Shape):
+    def __init__(self, vel=0, mass=400, max_vel=5, planning_depth=20, **kwargs):
+        from fluids.assets import (
+            Lane,
+            Car,
+            Pedestrian,
+            TrafficLight,
+            Terrain,
+            Sidewalk,
+            PedCrossing,
+        )
+
+        collideables = [
+            Lane,
+            Car,
+            Pedestrian,
+            TrafficLight,
+            Terrain,
+            Sidewalk,
+            PedCrossing,
+        ]
+        Shape.__init__(
+            self,
+            collideables=collideables,
+            color=(0x1D, 0xB1, 0xB0),  # 769BB0
+            xdim=70,
+            ydim=35,
+            **kwargs
+        )
+
+        self.l_r = self.l_f = self.ydim / 2
+        self.mass = mass
+        self.max_vel = max_vel
+        self.vel = vel
+        self.waypoints = []
+        self.trajectory = []
         self.planning_depth = planning_depth
-        self.PID_acc        = PIDController(1.0, 0, 0)
-        self.PID_steer      = PIDController(2.0, 0, 0)
-        self.last_action    = SteeringAccAction(0, 0)
-        self.last_obs       = None
-        self.last_distance  = 0
-        self.last_to_goal   = 0
-        self.stopped_time   = 0
-        self.running_time   = 0
+        self.PID_acc = PIDController(1.0, 0, 0)
+        self.PID_steer = PIDController(2.0, 0, 0)
+        self.last_action = SteeringAccAction(0, 0)
+        self.last_obs = None
+        self.last_distance = 0
+        self.last_to_goal = 0
+        self.stopped_time = 0
+        self.running_time = 0
 
         self.last_blob_time = -1
-        self.cached_blob    = self.get_future_shape()
-
+        self.cached_blob = self.get_future_shape()
 
     def make_observation(self, obs_space=OBS_NONE, **kwargs):
         if obs_space == OBS_NONE:
@@ -82,7 +94,7 @@ class Car(Shape):
         if acc > self.max_vel - self.vel:
             acc = self.max_vel - self.vel
         elif acc < -self.max_vel - self.vel:
-            acc = - self.max_vel - self.vel
+            acc = -self.max_vel - self.vel
 
         ode_state = [self.x, self.y, self.vel, self.angle]
         aux_state = (steer, acc, self.l_r, self.l_f)
@@ -91,13 +103,9 @@ class Car(Shape):
         delta_ode_state = odeint(integrator, ode_state, t, args=aux_state)
         x, y, vel, angle = delta_ode_state[-1]
 
-
         self.vel = vel
         self.update_points(x, y, angle)
         self.running_time += 1
-
-
-
 
     def step(self, action):
 
@@ -114,8 +122,8 @@ class Car(Shape):
             fluids_assert(False, "Cars cannot receive a raw steering action")
         elif type(action) == VelocityAction:
             steer, acc = self.PIDController(action).get_action()
-            #steer += np.random.randn() * 0.5 * steer
-            #acc += np.random.randn() * 0.5 * acc / 5
+            # steer += np.random.randn() * 0.5 * steer
+            # acc += np.random.randn() * 0.5 * acc / 5
             self.raw_step(steer, acc)
             self.last_action = action
         elif type(action) == SteeringVelAction:
@@ -128,14 +136,23 @@ class Car(Shape):
             return
         else:
             fluids_assert(False, "Car received an illegal action")
-        while len(self.waypoints) < self.planning_depth and len(self.waypoints) and len(self.waypoints[-1].nxt):
+        while (
+            len(self.waypoints) < self.planning_depth
+            and len(self.waypoints)
+            and len(self.waypoints[-1].nxt)
+        ):
             next_edge = random.choice(self.waypoints[-1].nxt)
             next_waypoint = next_edge.out_p
             line = next_edge.shapely_obj
             # line = shapely.geometry.LineString([(self.waypoints[-1].x, self.waypoints[-1].y),
             #                                     (next_waypoint.x, next_waypoint.y)]).buffer(self.ydim*0.5)
-            self.trajectory.append(((self.waypoints[-1].x, self.waypoints[-1].y),
-                                    (next_waypoint.x, next_waypoint.y), line))
+            self.trajectory.append(
+                (
+                    (self.waypoints[-1].x, self.waypoints[-1].y),
+                    (next_waypoint.x, next_waypoint.y),
+                    line,
+                )
+            )
             self.waypoints.append(next_waypoint)
 
         self.last_to_goal = distance_to_next - self.dist_to(self.waypoints[0])
@@ -155,13 +172,17 @@ class Car(Shape):
         """
         Returns predicted direction of the car based on waypoints
         """
-        if self.waypoints == []: return
+        if self.waypoints == []:
+            return
         future_index = min(len(self.waypoints) - 1, 1)
-        start = np.array([self.x , self.y])
+        start = np.array([self.x, self.y])
         first = np.array([self.waypoints[0].x, self.waypoints[0].y]) - start
-        future = np.array([self.waypoints[future_index].x, self.waypoints[future_index].y]) - start
+        future = (
+            np.array([self.waypoints[future_index].x, self.waypoints[future_index].y])
+            - start
+        )
         c = np.dot(first, future) / np.linalg.norm(first) / np.linalg.norm(future)
-        angle = np.math.atan2(np.linalg.det([first,future]),np.dot(first,future))
+        angle = np.math.atan2(np.linalg.det([first, future]), np.dot(first, future))
         angle = np.degrees(angle)
         thresh = 10
         if angle > thresh:
@@ -172,7 +193,6 @@ class Car(Shape):
             return LEFT
         else:
             return STRAIGHT
-
 
     def PIDController(self, target_vel, update=True):
         target_vel = target_vel.get_action() * self.max_vel
@@ -199,8 +219,10 @@ class Car(Shape):
         steer = self.PID_steer.get_control(e_angle, update=update)
         acc = self.PID_acc.get_control(e_vel, update=update)
         return SteeringAccAction(steer, acc)
+
     def can_collide(self, other):
         from fluids.assets import Lane, TrafficLight
+
         if type(other) is Lane:
             dangle = (self.angle - other.angle) % (2 * np.pi)
             if dangle > np.pi / 2 and dangle < 3 * np.pi / 2:
@@ -216,9 +238,12 @@ class Car(Shape):
         if self.last_blob_time != self.running_time:
             if len(self.waypoints) and len(self.trajectory):
 
-                line = shapely.geometry.LineString([(self.waypoints[0].x, self.waypoints[0].y),
-                                                    (self.x, self.y)]).buffer(20, resolution=2)
-                buf = [t[2] for t in self.trajectory][:max(int(1+6*self.vel/self.max_vel), 0)]
+                line = shapely.geometry.LineString(
+                    [(self.waypoints[0].x, self.waypoints[0].y), (self.x, self.y)]
+                ).buffer(20, resolution=2)
+                buf = [t[2] for t in self.trajectory][
+                    : max(int(1 + 6 * self.vel / self.max_vel), 0)
+                ]
                 self.cached_blob = shapely.ops.unary_union([line] + buf)
             else:
                 self.cached_blob = self.shapely_obj
@@ -231,26 +256,21 @@ class Car(Shape):
         if "waypoints" not in self.__dict__:
             return
         if len(self.waypoints) and self.vis_level > 1:
-            pygame.draw.line(surface,
-                             (255, 0, 0),
-                             (self.x, self.y),
-                             (self.waypoints[0].x, self.waypoints[0].y),
-                             2)
+            pygame.draw.line(
+                surface,
+                (255, 0, 0),
+                (self.x, self.y),
+                (self.waypoints[0].x, self.waypoints[0].y),
+                2,
+            )
             for line in self.trajectory:
-                pygame.draw.line(surface,
-                                 (255, 0, 0),
-                                 line[0],
-                                 line[1],
-                                 2)
+                pygame.draw.line(surface, (255, 0, 0), line[0], line[1], 2)
         if len(self.waypoints) and self.vis_level > 4:
             blob = self.get_future_shape()
 
             traj_ob = list(zip(*(blob).exterior.coords.xy))
 
-            pygame.draw.polygon(surface,
-                                (175, 175, 175),
-                                traj_ob,
-                                5)
+            pygame.draw.polygon(surface, (175, 175, 175), traj_ob, 5)
 
             for wp in self.waypoints[0].owner.waypoints:
                 wp.render_debug(surface, color=(0, 100, 0), width=20)

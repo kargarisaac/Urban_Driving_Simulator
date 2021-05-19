@@ -7,30 +7,50 @@ from fluids.utils import rotation_array
 from scipy.misc import imresize
 from fluids.consts import *
 
+
 class GridObservation(FluidsObs):
     """
-    Grid observation type. 
-    Observation is an occupancy grid over the detection region. 
-    Observation has 11 dimensions: terrain, drivable regions, illegal drivable 
+    Grid observation type.
+    Observation is an occupancy grid over the detection region.
+    Observation has 11 dimensions: terrain, drivable regions, illegal drivable
     regions, cars, pedestrians, traffic lights x 3, way points, point trajectory and edge trajectory.
     Array representation is (grid_size, grid_size, 11)
     """
-    def __init__(self, car, obs_dim=500, shape=(500,500)):
-        from fluids.assets import ALL_OBJS, TrafficLight, Lane, Terrain, Sidewalk, \
-            PedCrossing, Street, Car, Waypoint, Pedestrian
+
+    def __init__(self, car, obs_dim=500, shape=(500, 500)):
+        from fluids.assets import (
+            ALL_OBJS,
+            TrafficLight,
+            Lane,
+            Terrain,
+            Sidewalk,
+            PedCrossing,
+            Street,
+            Car,
+            Waypoint,
+            Pedestrian,
+        )
+
         state = car.state
         self.car = car
         self.shape = shape
         self.grid_dim = obs_dim
         self.downsample = self.shape != (obs_dim, obs_dim)
-        self.grid_square = Shape(x=car.x+obs_dim/3*np.cos(car.angle),
-                                 y=car.y-obs_dim/3*np.sin(car.angle),
-                                 xdim=obs_dim, ydim=obs_dim, angle=car.angle,
-                                 color=None, border_color=(200,0,0))
+        self.grid_square = Shape(
+            x=car.x + obs_dim / 3 * np.cos(car.angle),
+            y=car.y - obs_dim / 3 * np.sin(car.angle),
+            xdim=obs_dim,
+            ydim=obs_dim,
+            angle=car.angle,
+            color=None,
+            border_color=(200, 0, 0),
+        )
         self.all_collideables = []
-        collideable_map = {typ:[] for typ in ALL_OBJS}
+        collideable_map = {typ: [] for typ in ALL_OBJS}
         for k, obj in iteritems(state.objects):
-            if (car.can_collide(obj) or type(obj) in {TrafficLight, Lane, Street}) and self.grid_square.intersects(obj):
+            if (
+                car.can_collide(obj) or type(obj) in {TrafficLight, Lane, Street}
+            ) and self.grid_square.intersects(obj):
                 typ = type(obj)
                 if typ == TrafficLight:
                     if obj.color == RED:
@@ -47,26 +67,26 @@ class GridObservation(FluidsObs):
             collideable_map[Waypoint].append(waypoint)
             self.all_collideables.append(waypoint)
 
-        terrain_window    = pygame.Surface((self.grid_dim, self.grid_dim))
-        drivable_window   = pygame.Surface((self.grid_dim, self.grid_dim))
+        terrain_window = pygame.Surface((self.grid_dim, self.grid_dim))
+        drivable_window = pygame.Surface((self.grid_dim, self.grid_dim))
         undrivable_window = pygame.Surface((self.grid_dim, self.grid_dim))
-        car_window        = pygame.Surface((self.grid_dim, self.grid_dim))
-        ped_window        = pygame.Surface((self.grid_dim, self.grid_dim))
-        light_window_red  = pygame.Surface((self.grid_dim, self.grid_dim))
-        light_window_green= pygame.Surface((self.grid_dim, self.grid_dim))
-        light_window_yellow=pygame.Surface((self.grid_dim, self.grid_dim))
-        direction_window  = pygame.Surface((self.grid_dim, self.grid_dim))
-        direction_pixel_window \
-                          = pygame.Surface((self.grid_dim, self.grid_dim))
-        direction_edge_window \
-                          = pygame.Surface((self.grid_dim, self.grid_dim))
+        car_window = pygame.Surface((self.grid_dim, self.grid_dim))
+        ped_window = pygame.Surface((self.grid_dim, self.grid_dim))
+        light_window_red = pygame.Surface((self.grid_dim, self.grid_dim))
+        light_window_green = pygame.Surface((self.grid_dim, self.grid_dim))
+        light_window_yellow = pygame.Surface((self.grid_dim, self.grid_dim))
+        direction_window = pygame.Surface((self.grid_dim, self.grid_dim))
+        direction_pixel_window = pygame.Surface((self.grid_dim, self.grid_dim))
+        direction_edge_window = pygame.Surface((self.grid_dim, self.grid_dim))
 
         gd = self.grid_dim
         a0 = self.car.angle + np.pi / 2
         a1 = self.car.angle
-        rel = (self.car.x+gd/2*np.cos(a0)-gd/6*np.cos(a1),
-               self.car.y-gd/2*np.sin(a0)+gd/6*np.sin(a1),
-               self.car.angle)
+        rel = (
+            self.car.x + gd / 2 * np.cos(a0) - gd / 6 * np.cos(a1),
+            self.car.y - gd / 2 * np.sin(a0) + gd / 6 * np.sin(a1),
+            self.car.angle,
+        )
 
         for typ in [Terrain, Sidewalk, PedCrossing]:
             for obj in collideable_map[typ]:
@@ -98,54 +118,92 @@ class GridObservation(FluidsObs):
         for obj in collideable_map["TrafficLight-Green"]:
             rel_obj = obj.get_relative(rel)
             rel_obj.render(light_window_green, border=None)
-        
+
         for obj in collideable_map["TrafficLight-Yellow"]:
             rel_obj = obj.get_relative(rel)
             rel_obj.render(light_window_green, border=None)
 
-        point = (int(gd/6), int(gd/2))
+        point = (int(gd / 6), int(gd / 2))
         edge_point = None
 
         def is_on_screen(point, gd):
             return 0 <= point[0] < gd and 0 <= point[1] < gd
-        
+
         line_width = 20
         for p in self.car.waypoints:
             relp = p.get_relative(rel)
             new_point = int(relp.x), int(relp.y)
-            if not edge_point and is_on_screen(point, gd) and not is_on_screen(new_point, gd):
+            if (
+                not edge_point
+                and is_on_screen(point, gd)
+                and not is_on_screen(new_point, gd)
+            ):
                 edge_point = new_point
 
-            pygame.draw.line(direction_window, (255, 255, 255), point, new_point, line_width)
+            pygame.draw.line(
+                direction_window, (255, 255, 255), point, new_point, line_width
+            )
             point = new_point
-        
+
         if edge_point:
-            edge_point = (min(gd - 1, max(0, edge_point[0])), min(gd - 1, max(0, edge_point[1])))
-            pygame.draw.circle(direction_pixel_window, (255, 255, 255), edge_point, line_width)
-        
+            edge_point = (
+                min(gd - 1, max(0, edge_point[0])),
+                min(gd - 1, max(0, edge_point[1])),
+            )
+            pygame.draw.circle(
+                direction_pixel_window, (255, 255, 255), edge_point, line_width
+            )
+
         if edge_point:
             if edge_point[0] == 0:
-                pygame.draw.line(direction_edge_window, (255, 255, 255), (0, 0), (0, gd - 1), line_width)
+                pygame.draw.line(
+                    direction_edge_window,
+                    (255, 255, 255),
+                    (0, 0),
+                    (0, gd - 1),
+                    line_width,
+                )
             if edge_point[0] == gd - 1:
-                pygame.draw.line(direction_edge_window, (255, 255, 255), (gd - 1, 0), (gd - 1, gd - 1), line_width)
+                pygame.draw.line(
+                    direction_edge_window,
+                    (255, 255, 255),
+                    (gd - 1, 0),
+                    (gd - 1, gd - 1),
+                    line_width,
+                )
             if edge_point[1] == 0:
-                pygame.draw.line(direction_edge_window, (255, 255, 255), (0, 0), (gd - 1, 0), line_width)
+                pygame.draw.line(
+                    direction_edge_window,
+                    (255, 255, 255),
+                    (0, 0),
+                    (gd - 1, 0),
+                    line_width,
+                )
             if edge_point[1] == gd - 1:
-                pygame.draw.line(direction_edge_window, (255, 255, 255), (0, gd - 1), (gd - 1, gd - 1), line_width)
+                pygame.draw.line(
+                    direction_edge_window,
+                    (255, 255, 255),
+                    (0, gd - 1),
+                    (gd - 1, gd - 1),
+                    line_width,
+                )
 
-
-        self.pygame_rep = [pygame.transform.rotate(window, 90) for window in [terrain_window,
-                                                                              drivable_window,
-                                                                              undrivable_window,
-                                                                              car_window,
-                                                                              ped_window,
-                                                                              light_window_red,
-                                                                              light_window_green,
-                                                                              light_window_yellow,
-                                                                              direction_window,
-                                                                              direction_pixel_window,
-                                                                              direction_edge_window
-                                                                              ]]
+        self.pygame_rep = [
+            pygame.transform.rotate(window, 90)
+            for window in [
+                terrain_window,
+                drivable_window,
+                undrivable_window,
+                car_window,
+                ped_window,
+                light_window_red,
+                light_window_green,
+                light_window_yellow,
+                direction_window,
+                direction_pixel_window,
+                direction_edge_window,
+            ]
+        ]
 
     def render(self, surface):
         self.grid_square.render(surface, border=10)
@@ -158,24 +216,39 @@ class GridObservation(FluidsObs):
                 for x in range(2):
                     i = y + x * 4
                     if i < len(self.pygame_rep):
-                        surface.blit(self.pygame_rep[i], (surface.get_size()[0] - self.grid_dim * (x+1), self.grid_dim * y))
-                        pygame.draw.rect(surface, (200, 0, 0),
-                                         pygame.Rect((surface.get_size()[0] - self.grid_dim*(x+1)-5, 0-5+self.grid_dim*y),
-                                                     (self.grid_dim+10, self.grid_dim+10)), 10)
+                        surface.blit(
+                            self.pygame_rep[i],
+                            (
+                                surface.get_size()[0] - self.grid_dim * (x + 1),
+                                self.grid_dim * y,
+                            ),
+                        )
+                        pygame.draw.rect(
+                            surface,
+                            (200, 0, 0),
+                            pygame.Rect(
+                                (
+                                    surface.get_size()[0] - self.grid_dim * (x + 1) - 5,
+                                    0 - 5 + self.grid_dim * y,
+                                ),
+                                (self.grid_dim + 10, self.grid_dim + 10),
+                            ),
+                            10,
+                        )
 
     def get_array(self):
         arr = np.zeros((self.grid_dim, self.grid_dim, len(self.pygame_rep)))
         for i in range(len(self.pygame_rep)):
-            arr[:,:,i] = pygame.surfarray.array2d(self.pygame_rep[i]) != 0
+            arr[:, :, i] = pygame.surfarray.array2d(self.pygame_rep[i]) != 0
             # print(pygame.surfarray.array2d(self.pygame_rep[i]) != 0)
-            
+
         if self.downsample:
             arr = self.sp_imresize(arr, self.shape)
         return arr
-    
+
     def sp_imresize(self, arr, shape):
-        return np.array([imresize(arr[:,:,i],shape) for i in range(arr.shape[2])]).T
-            
+        return np.array([imresize(arr[:, :, i], shape) for i in range(arr.shape[2])]).T
+
     # def label_distribution_from_block(self, arr, start, end):
     #     """Returns the distribution of labels in a block from arr.
 

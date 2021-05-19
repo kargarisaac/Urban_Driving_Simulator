@@ -23,16 +23,23 @@ class QLidarObservation(FluidsObs):
     ped_buffer: int
         If specified > 0, creates a buffered detection region around a pedestrian
     layers: list of types
-        If specified, provides control over multiple layers of QLIDAR observations, and the 
+        If specified, provides control over multiple layers of QLIDAR observations, and the
          types of detected objects
         To detect 1 layer of only cars, set this to [[fluids.assets.Car]]
     goal_distance: int
         The number of waypoint steps to look ahead when generating a "goal direction vector"
     """
-    def __init__(self, car, det_range=200, n_beams=8, beam_distribution=None,
-                 ped_buffer=0,
-                 layers=None,
-                 goal_distance=4):
+
+    def __init__(
+        self,
+        car,
+        det_range=200,
+        n_beams=8,
+        beam_distribution=None,
+        ped_buffer=0,
+        layers=None,
+        goal_distance=4,
+    ):
         from fluids.assets import Shape, Pedestrian, Car
 
         state = car.state
@@ -40,10 +47,14 @@ class QLidarObservation(FluidsObs):
         self.car = car
         self.det_range = det_range
 
-        self.grid_square = Shape(x=car.x, y=car.y,
-                                 xdim=det_range*2, ydim=det_range*2,
-                                 angle=car.angle,
-                                 color=None)
+        self.grid_square = Shape(
+            x=car.x,
+            y=car.y,
+            xdim=det_range * 2,
+            ydim=det_range * 2,
+            angle=car.angle,
+            color=None,
+        )
 
         self.all_collideables = []
         if layers == None:
@@ -57,26 +68,23 @@ class QLidarObservation(FluidsObs):
                         if c in layers[l]:
                             layer_collideables[l].append(obj)
 
-
         x, y = car.x, car.y
-        goal_distance = min(goal_distance, len(car.waypoints)-1)
+        goal_distance = min(goal_distance, len(car.waypoints) - 1)
         goal_wp = car.waypoints[goal_distance]
         goalx, goaly = goal_wp.x, goal_wp.y
 
-
-
-        if (goalx == x):
+        if goalx == x:
             if y - goaly > 0:
                 gangle = np.pi / 2
             else:
                 gangle = -np.pi / 2
         else:
-            gangle = (np.arctan((y - goaly) / (goalx - x)) % (2 * np.pi))
-        if (goalx - x < 0):
+            gangle = np.arctan((y - goaly) / (goalx - x)) % (2 * np.pi)
+        if goalx - x < 0:
             gangle = gangle + np.pi
         gangle = gangle % (2 * np.pi)
         if np.any(beam_distribution):
-            n_beams     = len(beam_distribution)
+            n_beams = len(beam_distribution)
             beam_deltas = np.array(beam_distribution) * np.pi
         else:
             beam_deltas = np.linspace(-1, 1, n_beams + 1) * np.pi
@@ -95,7 +103,7 @@ class QLidarObservation(FluidsObs):
                 min_coll_d = det_range
                 for obj in layer_collideables[i]:
                     other_shape = obj.shapely_obj
-                    if (ped_buffer and type(obj) == Pedestrian):
+                    if ped_buffer and type(obj) == Pedestrian:
                         other_shape = other_shape.buffer(ped_buffer)
                     isect = linestring.intersection(other_shape)
                     if not isect.is_empty:
@@ -103,18 +111,18 @@ class QLidarObservation(FluidsObs):
                         if d < min_coll_d:
                             min_coll_d = d
 
-
                 min_coll_ds.append(min_coll_d)
-            d_gangle = min(abs(beam_angle - gangle),
-                    2*np.pi - abs(beam_angle - gangle))
+            d_gangle = min(
+                abs(beam_angle - gangle), 2 * np.pi - abs(beam_angle - gangle)
+            )
             min_coll_ds.append(d_gangle)
             self.detections.append(min_coll_ds)
 
         self.detections = np.array(self.detections)
 
-        min_angle_index = min(enumerate(self.detections[:,1]), key=lambda x:x[1])[0]
-        self.detections[:,1] = 0
-        self.detections[min_angle_index,1] = 1
+        min_angle_index = min(enumerate(self.detections[:, 1]), key=lambda x: x[1])[0]
+        self.detections[:, 1] = 0
+        self.detections[min_angle_index, 1] = 1
 
     def get_array(self):
         return np.array(self.detections)
@@ -135,8 +143,7 @@ class QLidarObservation(FluidsObs):
             #                    (int(self.goalx), int(self.goaly)),
             #                    10)
 
-            for det, (beam_delta, ls) in \
-                zip(self.detections, self.linestrings):
+            for det, (beam_delta, ls) in zip(self.detections, self.linestrings):
 
                 # pygame.draw.line(surface, (0, 255, 0),
                 #                  (self.car.x, self.car.y),
@@ -146,18 +153,21 @@ class QLidarObservation(FluidsObs):
                 xd = np.cos(angle) * det[0]
                 yd = np.sin(angle) * det[0]
 
-
                 color = (255, 0, 0)
                 if det[0] == self.det_range:
                     color = (0, 255, 0)
 
                 if det[1]:
-                    pygame.draw.circle(surface,
-                                       (0, 0, 255),
-                                       (int(self.car.x+xd), int(self.car.y-yd)),
-                                       10)
-                pygame.draw.line(surface,
-                                 color,
-                                 (self.car.x, self.car.y),
-                                 (self.car.x+xd, self.car.y-yd),
-                                 4)
+                    pygame.draw.circle(
+                        surface,
+                        (0, 0, 255),
+                        (int(self.car.x + xd), int(self.car.y - yd)),
+                        10,
+                    )
+                pygame.draw.line(
+                    surface,
+                    color,
+                    (self.car.x, self.car.y),
+                    (self.car.x + xd, self.car.y - yd),
+                    4,
+                )

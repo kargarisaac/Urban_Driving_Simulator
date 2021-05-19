@@ -5,11 +5,8 @@ f = open("fluids/version.py")
 exec(f.readlines()[0])
 
 
-setup(name="fluids",
-      version=__version__,
-      install_requires=['pygame',
-                        'numpy',
-                        'scipy',
-                        'shapely',
-                        'ortools',
-                        'pillow'])
+setup(
+    name="fluids",
+    version=__version__,
+    install_requires=["pygame", "numpy", "scipy", "shapely", "ortools", "pillow"],
+)

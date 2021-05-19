@@ -17,4 +17,6 @@ class PIDController:
         derivative_error = err - self.prev_error
         self.prev_error = err
 
-        return self.Kp*err + self.Ki*self.integral_error + self.Kd*derivative_error
+        return (
+            self.Kp * err + self.Ki * self.integral_error + self.Kd * derivative_error
+        )
