@@ -9,7 +9,7 @@ import cv2
 
 
 obs_w = 500
-time_limit = 1000
+time_limit = 500
 
 fluids_args = {
     "visualization_level": 4,

@@ -20,3 +20,8 @@ docs/build/*
 .coverage
 
 .coveralls.yml
+
+
+gym_fluids/gym_fluids.egg-info/*
+*~
+gym_fluids/*.pyc

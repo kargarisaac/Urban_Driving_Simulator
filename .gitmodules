@@ -1,3 +1,0 @@
-[submodule "gym_fluids"]
-	path = gym_fluids
-	url = https://github.com/BerkeleyAutomation/gym_fluids.git
